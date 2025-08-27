@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BOSS</title>
+  <style>
+    :root{
+      --bg: #06080f;
+      --bg-2: #0b1020;
+      --fg: #e8f0ff;
+      --muted: #9db0d1;
+      --accent: #66e0ff;   /* neon cyan */
+      --accent-2: #9b8cff; /* violet */
+      --ok: #44d19f;
+      --warn: #ffd166;
+      --danger: #ff6b7a;
+      --card: rgba(255,255,255,0.06);
+      --glass: rgba(255,255,255,0.08);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0; font: 500 18px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color:var(--fg); background: var(--bg);
+      overflow:hidden;
+    }
+
+    /* Futuristic animated background */
+    .backdrop{
+      position: fixed; inset: 0; z-index: 0; pointer-events:none; overflow:hidden;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(153, 102, 255, 0.18), transparent 60%),
+        radial-gradient(900px 700px at -10% 80%, rgba(0, 200, 255, 0.16), transparent 60%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+    }
+    .gridlines::before{
+      content:""; position:absolute; inset:0; background-image:
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 48px 48px; mask-image: radial-gradient(1000px 600px at 50% 30%, #000 55%, transparent 70%);
+    }
+    .pulse{
+      position:absolute; inset:auto; width:1200px; height:1200px; left:50%; top:60%; transform:translate(-50%,-50%);
+      background: radial-gradient(circle at center, rgba(102,224,255,0.16), transparent 60%);
+      filter: blur(20px); animation: breathe 9s ease-in-out infinite;
+    }
+    @keyframes breathe{0%{transform:translate(-50%,-50%) scale(0.95)}50%{transform:translate(-50%,-50%) scale(1.03)}100%{transform:translate(-50%,-50%) scale(0.95)}}
+
+    /* Deck chrome */
+    .chrome{
+      position: fixed; inset: 16px 16px auto 16px; z-index: 3; display:flex; align-items:center; gap:10px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+      border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:8px 12px; backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:0.2px;
+    }
+    .brand .dot{width:10px;height:10px;border-radius:50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 0 20px var(--accent)}
+    .sep{opacity:.4}
+    .chrome .controls{display:flex;gap:6px;margin-left:8px}
+    .btn{appearance:none;border:1px solid rgba(255,255,255,0.14); background:var(--glass); color:var(--fg); padding:8px 10px; border-radius:12px; cursor:pointer; font-weight:600}
+    .btn:hover{border-color:rgba(255,255,255,0.28)}
+    .counter{opacity:.7; font-weight:600}
+
+    /* Slides */
+    .deck{position:relative; width:100vw; height:100vh; z-index:1}
+    .slides{position:absolute; inset:0; display:flex; transition: transform .45s cubic-bezier(.2,.7,.1,1);}
+    .slide{flex: 0 0 100%; height:100%; display:flex; align-items:center; justify-content:center; padding:90px 72px 72px;
+      position:relative; isolation:isolate;
+    }
+    .stage{max-width: 1200px; width:100%; display:grid; grid-template-columns: 1fr; gap:28px}
+
+    h1,h2,h3{margin:0; font-weight:800; line-height:1.1}
+    h1{font-size: clamp(38px, 5.6vw, 72px); letter-spacing:-0.02em}
+    h2{font-size: clamp(28px, 3.6vw, 44px)}
+    h3{font-size: clamp(22px, 2.8vw, 30px)}
+    p{margin:0; color: var(--muted); font-weight:500}
+
+    .accent{background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip:text; background-clip:text; color:transparent}
+
+    .subtitle{font-size:clamp(16px, 1.6vw, 22px)}
+
+    .cards{display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:16px}
+    .card{background: var(--card); border:1px solid rgba(255,255,255,0.10); border-radius:18px; padding:18px 18px 16px; min-height:120px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);}
+    .card h3{font-size:20px}
+
+    .kpis{display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:16px}
+    .kpi{background:var(--card); border:1px solid rgba(255,255,255,0.10); border-radius:18px; padding:16px 18px}
+    .kpi .n{font-size: clamp(28px, 4vw, 42px); font-weight:900}
+    .kpi .l{font-size:14px; color:var(--muted)}
+
+    .chips{display:flex; flex-wrap:wrap; gap:10px}
+    .chip{padding:8px 12px; border-radius:999px; background:linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06)); border:1px solid rgba(255,255,255,0.14); font-size:14px}
+
+    .foot{position:absolute; bottom:26px; left:72px; right:72px; display:flex; align-items:center; justify-content:space-between; opacity:.7; font-size:14px}
+    .progress{position:absolute; height:3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); left:0; bottom:0; width:0; box-shadow: 0 0 18px var(--accent)}
+
+    /* Fragments (progressive reveal) */
+    .fragment{opacity:0; transform: translateY(6px); transition: all .35s ease-out;}
+    .fragment.visible{opacity:1; transform:none}
+
+    /* Logos / placeholders */
+    .logoBox{display:flex; align-items:center; gap:14px; opacity:.9}
+    .logo{width:38px;height:38px;border-radius:10px; background: radial-gradient(circle at 30% 30%, var(--accent), transparent 45%), linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08)); border:1px solid rgba(255,255,255,0.18); box-shadow: inset 0 0 24px rgba(102,224,255,0.25), 0 6px 30px rgba(0,0,0,0.35)}
+
+    /* Print / PDF */
+    @media print{
+      body{overflow:visible}
+      .chrome, .backdrop{display:none !important}
+      .slide{page-break-after: always}
+    }
+
+    /* Small screens */
+    @media (max-width: 860px){
+      .cards{grid-template-columns: 1fr}
+      .kpis{grid-template-columns: repeat(2, minmax(0,1fr))}
+      .slide{padding:80px 22px 60px}
+      .foot{left:22px; right:22px}
+    }
+  </style>
+</head>
+<body>
+  <div class="backdrop gridlines">
+    <div class="pulse"></div>
+  </div>
+
+  <div class="chrome">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>Blue Water Trade Winds • <span class="accent">BOSS</span></span>
+      <span class="sep">|</span>
+      <span class="counter" id="counter">1 / 12</span>
+    </div>
+    <div class="controls">
+      <button class="btn" id="prevBtn" title="Previous (←)">←</button>
+      <button class="btn" id="nextBtn" title="Next (→)">→</button>
+      <button class="btn" id="fsBtn" title="Fullscreen (F)">⤢</button>
+      <button class="btn" id="helpBtn" title="Help (?)">?</button>
+    </div>
+  </div>
+
+  <div class="deck" id="deck">
+    <div class="slides" id="slides" style="transform: translateX(0%)">
+      <!-- 1. Title -->
+      <section class="slide" data-title="AI‑First Maritime Ops">
+        <div class="stage">
+          <div class="logoBox">
+            <div class="logo" aria-hidden="true"></div>
+            <div>
+              <div style="font-weight:800; letter-spacing:.2px">BOSS - AI Vision</div>
+              <div style="font-size:14px; opacity:.7">Product RoadMap — 27 Aug 2025</div>
+            </div>
+          </div>
+          <h1><span ><img src="https://bossv2.bwesglobal.com/static/images/BOSSYELLOWLOGO1.png" width="120px"/></span> <span class="accent">Next‑Gen Capabilities</span></h1>
+          <p class="subtitle">From insight → action: building an AI operator for commercial shipping</p>
+          <div class="kpis">
+            <div class="kpi"><div class="n">6</div><div class="l">Initiatives</div></div>
+            <div class="kpi"><div class="n">12 Months</div><div class="l">Forecast horizon</div></div>
+            <!-- <div class="kpi"><div class="n">24×7</div><div class="l">Autopilot readiness</div></div>
+            <div class="kpi"><div class="n">⚡</div><div class="l">Low‑friction UX</div></div> -->
+          </div>
+          <div class="foot"><span>Confidential — © Blue Water Trade Winds</span><span>Use ← → or click • Press F for fullscreen</span></div>
+        </div>
+        <div class="progress" id="progress"></div>
+      </section>
+
+      <!-- 2. Agenda -->
+      <section class="slide" data-title="Agenda">
+        <div class="stage">
+          <h2>Agenda</h2>
+          <div class="cards">
+            <div class="card"><h3>1) Vessel Pre‑Fixture</h3><p>Autobiography of a ship: model, performance, risk</p></div>
+            <div class="card"><h3>2) Aanya Neugen</h3><p>From Q&A → proactive dialogue with voice</p></div>
+            <div class="card"><h3>3) C‑ORCA Autopilot</h3><p>From rules → actions (objective + subjective)</p></div>
+            <div class="card"><h3>4) ECMWF</h3><p>14‑day seamless forecasts (no day‑5 jump)</p></div>
+            <div class="card"><h3>5) WASP</h3><p>Wind‑assist aware routing for true efficiency</p></div>
+            <div class="card"><h3>6) Alternate Fuels</h3><p>LCV × price × ETS/FEUM → optimal mix</p></div>
+          </div>
+          <div class="foot"><span></span><span></span></div>
+        </div>
+      </section>
+
+      <!-- 3. Vessel Pre‑Fixture -->
+      <section class="slide" data-title="Vessel Pre‑Fixture">
+        <div class="stage">
+          <h2><span class="accent">Vessel Pre‑Fixture</span> — Autobiography of a Ship</h2>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip">Base physics model (engine × hull)</span>
+            <span class="chip">AIS‑driven performance scoring</span>
+            <span class="chip">Public PSC inspection history</span>
+            <span class="chip">Last port stays & hull‑cleaning map</span>
+            <span class="chip">CII estimation & risk bands</span>
+          </div>
+          <div class="cards" style="margin-top:16px">
+            <div class="card"><h3>Signal Fusion</h3><p>Design specs + AIS time series → stable performance index</p></div>
+            <div class="card"><h3>Risk Lens</h3><p>PSC, anomalies, idle patterns → red/amber/green</p></div>
+            <div class="card"><h3>Fit‑for‑Voyage</h3><p>Route suitability, expected consumption & ETA reliability</p></div>
+          </div>
+          <div class="foot"><span>Data: AIS + public PSC sources</span><span>Outcome: faster, safer fixture decisions</span></div>
+        </div>
+      </section>
+
+      <!-- 4. Aanya Neugen -->
+      <section class="slide" data-title="Aanya Neugen">
+        <div class="stage">
+          <h2><span class="accent">Aanya Neugen</span> — Proactive Co‑Pilot</h2>
+          <div class="cards">
+            <div class="card"><h3>Dialogue, not prompts</h3><p class="fragment">Aanya leads with context: assigned vessels, current voyages</p></div>
+            <div class="card"><h3>Daily briefings</h3><p class="fragment">Auto‑summaries & suggested actions per ship</p></div>
+            <div class="card"><h3>Talk to Aanya</h3><p class="fragment">Built‑in text‑to‑speech for hands‑free ops</p></div>
+          </div>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip fragment">Proactive suggestions</span>
+            <span class="chip fragment">Memory of operator preferences</span>
+            <span class="chip fragment">Seamless app deep‑links</span>
+          </div>
+          <div class="foot"><span>Goal: reduce clicks → increase decisions</span><span>Mode: chat • cards • voice</span></div>
+        </div>
+      </section>
+
+      <!-- 5. C‑ORCA Autopilot -->
+      <section class="slide" data-title="C‑ORCA Autopilot">
+        <div class="stage">
+          <h2><span class="accent">C‑ORCA Autopilot</span> — From Insight to Action</h2>
+          <div class="cards">
+            <div class="card"><h3>Today</h3><p>Rule‑based RCA on deviations</p></div>
+            <div class="card"><h3>Next</h3><p>Autonomous actions with human‑in‑the‑loop</p></div>
+            <div class="card"><h3>Signals</h3><p>Reports • crew remarks • email context</p></div>
+          </div>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip">Objective + subjective fusion</span>
+            <span class="chip">Explainable recommendations</span>
+            <span class="chip">Escalate only when needed</span>
+          </div>
+          <div class="foot"><span>Towards the <strong>AI Operator</strong></span><span>Safety, compliance, and commercial outcomes</span></div>
+        </div>
+      </section>
+
+      <!-- 6. ECMWF -->
+      <section class="slide" data-title="ECMWF Weather Source">
+        <div class="stage">
+          <h2><span class="accent">ECMWF</span> — Seamless 14‑day Forecasts</h2>
+          <div class="cards">
+            <div class="card"><h3>Problem</h3><p>Day‑5 jump (Spire → NOAA) causes route churn</p></div>
+            <div class="card"><h3>Solution</h3><p>ECMWF 0–14d continuity → stable decisions</p></div>
+            <div class="card"><h3>Outcome</h3><p>Fewer re‑plans, tighter ETA bands</p></div>
+          </div>
+          <div class="foot"><span>Blend: keep Spire tactical, ECMWF strategic</span><span>Operator confidence ↑</span></div>
+        </div>
+      </section>
+
+      <!-- 7. WASP -->
+      <section class="slide" data-title="WASP Routing">
+        <div class="stage">
+          <h2><span class="accent">WASP</span> — Wind‑Assist Aware Routing</h2>
+          <div class="cards">
+            <div class="card"><h3>Physics‑first</h3><p>Direction‑wise retardation model already in place</p></div>
+            <div class="card"><h3>Augmented</h3><p>Account for kite/sail thrust & leeway</p></div>
+            <div class="card"><h3>Impact</h3><p>Fuel & time savings with safe envelopes</p></div>
+          </div>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip">Wind window detection</span>
+            <span class="chip">Route biasing when favorable</span>
+            <span class="chip">Operator override</span>
+          </div>
+          <div class="foot"><span>Compatible with current optimizer</span><span>Enables greener, cheaper passages</span></div>
+        </div>
+      </section>
+
+      <!-- 8. Alternate Fuels -->
+      <section class="slide" data-title="Email Sentimental Analysis">
+        <div class="stage">
+          <h2><span class="accent">Email Sentimental Analysis</span> — Measure Comms Score</h2>
+          <div class="cards">
+            <div class="card"><h3>LLM Sentiment Engine</h3><p>Analyses inbound and outbound emails • Detects tone: Positive, Neutral, Negative</p></div>
+            <div class="card"><h3>Efficiency Gains</h3><p>Helps operators adapt communication style • Reduces misinterpretation & delays</p></div>
+            <div class="card"><h3>Management Dashboard</h3><p>Client sentiment visibility across fleets • Identify patterns & proactively improve relations</p></div>
+          </div>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip">Real-time sentiment tagging</span>
+            <span class="chip">Trend analysis over time</span>
+            <span class="chip">Heatmaps of client interactions</span>
+          </div>
+          <div class="foot"><span>Outcome: Improved client relationships • Faster conflict resolution • Data-driven communication strategy</span></div>
+        </div>
+      </section>
+      <section class="slide" data-title="Alternate Fuel Analysis">
+        <div class="stage">
+          <h2><span class="accent">Alternate Fuel Analysis</span> — Voyage‑Level Optimum</h2>
+          <div class="cards">
+            <div class="card"><h3>Inputs</h3><p>LCV/LHV • market prices • blend constraints</p></div>
+            <div class="card"><h3>Policy</h3><p>EU ETS • FEUM penalties / credits</p></div>
+            <div class="card"><h3>Output</h3><p>Cost‑per‑NM & emissions‑per‑NM optimal mix</p></div>
+          </div>
+          <div class="chips" style="margin-top:10px">
+            <span class="chip">Scenario compare</span>
+            <span class="chip">Risk/volatility bands</span>
+            <span class="chip">Procurement guidance</span>
+          </div>
+          <div class="foot"><span>Fuels: HFO, VLSFO, LSMGO, LNG, bio, e‑fuels</span><span>Decision: price × compliance × ops</span></div>
+        </div>
+      </section>
+
+      <!-- 9. Platform View (optional visual slide) -->
+      <section class="slide" data-title="Platform Snapshot">
+        <div class="stage">
+          <h2>BOSS Platform — <span class="accent">AI Fabric</span></h2>
+          <div class="cards">
+            <div class="card"><h3>Data Plane</h3><p>AIS • weather • reports • email • market</p></div>
+            <div class="card"><h3>Model Layer</h3><p>Vessel base model • routing • fuel optimizer</p></div>
+            <div class="card"><h3>Action Layer</h3><p>Aanya • C‑ORCA • dashboards & alerts</p></div>
+          </div>
+          <div class="foot"><span>Secure • auditable • explainable</span><span>ISO 27001 practices</span></div>
+        </div>
+      </section>
+
+      <!-- 10. Roadmap / Decisions -->
+      <section class="slide" data-title="Roadmap">
+        <div class="stage">
+          <h2>Roadmap</h2>
+          <div class="cards">
+            <div class="card"><h3>Q3-25</h3><p>C-ORCA Autopilot • Aanya dialogue • ECMWF integration</p></div>
+            <div class="card"><h3>Q4-25</h3><p>WASP beta • fuel scenarios</p></div>
+            <div class="card"><h3>Q1-26</h3><p>Vessel Pre‑fixture v1</p></div>
+            <!-- <div class="card"><h3>Board Asks</h3><p>ECMWF license • AIS data budget • voice TTS engine</p></div> -->
+          </div>
+          <div class="foot"><span>Milestones are operator‑outcome led</span><span>Clear acceptance criteria per module</span></div>
+        </div>
+      </section>
+
+      <!-- , -->
+
+      <!-- 12. Q&A -->
+      <section class="slide" data-title="Q&A">
+        <div class="stage">
+          <h1>Q&A</h1>
+          <p class="subtitle">Thank you — ready for discussion</p>
+          <div class="foot"><span>Blue Water Trade Winds</span><span></span></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Help overlay -->
+  <dialog id="help" style="border:none; border-radius:18px; padding:18px 22px; background:rgba(12,17,30,.96); color:var(--fg); max-width:520px">
+    <h3 style="margin:0 0 10px 0">Controls</h3>
+    <ul style="margin:0; padding-left:18px; color:var(--muted)">
+      <li>Next/Prev: <strong>→ / ←</strong> or click the arrows</li>
+      <li>Fullscreen: <strong>F</strong></li>
+      <li>Reveal fragments: <strong>Space</strong></li>
+      <li>Print / PDF export: <strong>Cmd/Ctrl + P</strong></li>
+      <li>Jump to slide: edit URL hash (e.g., <code>#5</code>)</li>
+    </ul>
+    <div style="display:flex; justify-content:flex-end; margin-top:14px"><button class="btn" onclick="document.getElementById('help').close()">Close</button></div>
+  </dialog>
+
+  <script>
+    const slidesEl = document.getElementById('slides');
+    const progressEl = document.getElementById('progress');
+    const counterEl = document.getElementById('counter');
+    const help = document.getElementById('help');
+
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const N = slides.length;
+    let i = Math.max(0, Math.min(N-1, parseInt(location.hash.replace('#','')) - 1 || 0));
+
+    function update() {
+      slidesEl.style.transform = `translateX(${-i*100}%)`;
+      counterEl.textContent = `${i+1} / ${N}`;
+      const pct = ((i) / (N-1)) * 100; progressEl.style.width = pct + '%';
+      location.hash = `#${i+1}`;
+      // Handle fragments
+      const frags = slides[i].querySelectorAll('.fragment');
+      frags.forEach(f => f.classList.remove('visible'));
+      fragmentIndex = -1;
+    }
+
+    // Fragments per slide
+    let fragmentIndex = -1;
+    function revealNextFragment(){
+      const frags = slides[i].querySelectorAll('.fragment');
+      if(fragmentIndex < frags.length - 1){
+        fragmentIndex++;
+        frags[fragmentIndex].classList.add('visible');
+        return true;
+      }
+      return false;
+    }
+
+    function next(){ if(!revealNextFragment()){ i = Math.min(N-1, i+1); update(); } }
+    function prev(){ i = Math.max(0, i-1); update(); }
+
+    document.getElementById('nextBtn').onclick = next;
+    document.getElementById('prevBtn').onclick = prev;
+    document.getElementById('helpBtn').onclick = ()=> help.open ? help.close() : help.showModal();
+
+    document.getElementById('fsBtn').onclick = ()=>{
+      if(!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); }
+      else{ document.exitFullscreen(); }
+    };
+
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'ArrowRight' || e.key === 'PageDown') next();
+      if(e.key === 'ArrowLeft' || e.key === 'PageUp') prev();
+      if(e.key === 'f' || e.key === 'F') document.getElementById('fsBtn').click();
+      if(e.key === ' '){ e.preventDefault(); revealNextFragment(); }
+      if(e.key === '?') document.getElementById('helpBtn').click();
+      if(e.key === 'Home'){ i = 0; update(); }
+      if(e.key === 'End'){ i = N-1; update(); }
+    });
+
+    window.addEventListener('hashchange', ()=>{
+      const idx = Math.max(0, Math.min(N-1, parseInt(location.hash.replace('#','')) - 1 || 0));
+      if(idx !== i){ i = idx; update(); }
+    });
+
+    update();
+  </script>
+</body>
+</html>
